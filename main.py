@@ -32,8 +32,8 @@ parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=8, type=int,
-                    metavar='N', help='mini-batch size (default: 8)')
+parser.add_argument('-b', '--batch-size', default=32, type=int,
+                    metavar='N', help='mini-batch size (default: 32)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -125,8 +125,6 @@ def main():
     for train_indices, val_indices in rs.split(file_list):
         train_file_list = file_list[train_indices]
         val_file_list = file_list[val_indices]
-
-    # normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
     pad = transforms.Pad(padding=calc_padding(height=101, width=101))
 
@@ -251,10 +249,12 @@ def validate(val_loader, model, criterion):
     return losses.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', verbose=True):
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
+        if verbose:
+            print('Validation loss improved, saving new model')
 
 
 class AverageMeter(object):
