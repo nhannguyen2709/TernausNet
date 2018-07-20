@@ -288,6 +288,6 @@ class UNet16(nn.Module):
         if self.num_classes > 1:
             x_out = F.log_softmax(self.final(dec1), dim=1)
         else:
-            x_out = self.final(dec1)
+            x_out = F.sigmoid(self.final(dec1))
 
         return x_out
