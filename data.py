@@ -44,10 +44,7 @@ class TGSSaltDataset(data.Dataset):
         return len(self.file_list)
     
     def _load_image(self, image_path):
-        return Image.open(image_path)
-    
-    def _load_mask(self, mask_path):
-        return Image.open(mask_path).convert('L')
+        return Image.open(image_path).convert('L')
 
     def __getitem__(self, index):
         if index not in range(0, len(self.file_list)):
@@ -66,7 +63,7 @@ class TGSSaltDataset(data.Dataset):
         if not self.test_mode:
             mask_folder = os.path.join(self.root_path, "masks")
             mask_path = os.path.join(mask_folder, file_id + ".png")
-            image, mask = self._load_image(image_path), self._load_mask(mask_path)
+            image, mask = self._load_image(image_path), self._load_image(mask_path)
             processed_image, processed_mask = self.transform(image), self.transform(mask)
             return processed_image, processed_mask
         else:
