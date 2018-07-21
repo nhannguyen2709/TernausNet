@@ -21,7 +21,7 @@ import torchvision.datasets as datasets
 from torchvision import models
 from unet_models import UNet16
 from dice_loss import BCEDiceLoss, dice_coeff
-from data import TGSSaltDataset
+from data import TGSSaltDataset, calc_padding
 from sklearn.model_selection import ShuffleSplit
 
 
@@ -128,8 +128,12 @@ def main():
         train_file_list = file_list[train_indices]
         val_file_list = file_list[val_indices]
 
-    train_dataset = TGSSaltDataset(traindir, train_file_list)
-    val_dataset = TGSSaltDataset(traindir, val_file_list)
+    pad = transforms.Pad(padding=calc_padding(height=101, width=101))
+
+    train_dataset = TGSSaltDataset(traindir, train_file_list,
+        transforms.Compose([pad, transforms.ToTensor()]))
+    val_dataset = TGSSaltDataset(traindir, val_file_list,
+        transforms.Compose([pad, transforms.ToTensor()]))
  
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
