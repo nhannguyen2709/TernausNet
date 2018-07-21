@@ -20,7 +20,6 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torchvision import models
 from unet_models import UNet16
-import augmentation as aug
 from dice_loss import BCEDiceLoss, dice_coeff
 from data import TGSSaltDataset
 from sklearn.model_selection import ShuffleSplit
@@ -254,7 +253,7 @@ def predict(checkpoint, threshold=0.5):
     test_file_list = pd.read_csv(os.path.join(args.data, 'sample_submission.csv'))['id']
     test_dataset = TGSSaltDataset(testdir, test_file_list,
         test_mode=True)
-    test_loader = data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.workers)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.workers)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
