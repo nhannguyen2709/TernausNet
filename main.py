@@ -1,9 +1,11 @@
 import argparse
+import numpy as np
 import os
 import pandas as pd
 import random
 import shutil
 import time
+from tqdm import tqdm
 import warnings
 
 import torch
@@ -19,7 +21,7 @@ import torchvision.datasets as datasets
 from torchvision import models
 from unet_models import UNet16
 from dice_loss import BCEDiceLoss, dice_coeff
-from data import calc_padding, TGSSaltDataset
+from data import TGSSaltDataset
 from sklearn.model_selection import ShuffleSplit
 
 
@@ -126,12 +128,10 @@ def main():
         train_file_list = file_list[train_indices]
         val_file_list = file_list[val_indices]
 
-    pad = transforms.Pad(padding=calc_padding(height=101, width=101))
-
     train_dataset = TGSSaltDataset(traindir, train_file_list,
-        transforms.Compose([pad, transforms.ToTensor()]))
+        transforms.ToTensor())
     val_dataset = TGSSaltDataset(traindir, val_file_list,
-        transforms.Compose([pad, transforms.ToTensor()]))
+        transforms.ToTensor())
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -249,12 +249,87 @@ def validate(val_loader, model, criterion):
     return losses.avg
 
 
+def predict(checkpoint, threshold=0.5):
+    from skimage.transform import resize
+
+    testdir = os.path.join(args.data, 'test')
+    test_file_list = pd.read_csv(os.path.join(args.data, 'sample_submission.csv'))['id']
+    test_dataset = TGSSaltDataset(testdir, test_file_list, 
+        transforms.ToTensor(),
+        test_mode=True)
+    test_loader = data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.workers)
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
+    model = torch.load(checkpoint)
+    model.eval()
+    model.to(device)
+
+    preds_test = []
+    with torch.no_grad():
+        for image in tqdm(test_loader):
+            output = model(image)
+            preds_test.append(output.numpy())
+    preds_test = np.array(preds_test)
+    preds_test = np.swapaxes(preds_test, 1, -1)
+    preds_test_t = (preds_test > threshold).astype(np.uint8)
+    preds_test_upsampled = []
+    for i in range(len(preds_test)):
+        preds_test_upsampled.append(resize(np.squeeze(preds_test[i]), 
+                                          (101, 101), 
+                                           mode='constant', preserve_range=True))
+
+    pred_dict = {fn:RLenc(np.round(preds_test_upsampled[i])) for i,fn in tqdm(enumerate(test_file_list))}
+    sub = pd.DataFrame.from_dict(pred_dict,orient='index')
+    sub.index.names = ['id']
+    sub.columns = ['rle_mask']
+    sub.to_csv('submission.csv')
+
+
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', verbose=True):
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
         if verbose:
             print('Validation loss improved, saving new model')
+
+
+def RLenc(img, order='F', format=True):
+    """
+    img is binary mask image, shape (r,c)
+    order is down-then-right, i.e. Fortran
+    format determines if the order needs to be preformatted (according to submission rules) or not
+
+    returns run length as an array or string (if format is True)
+    """
+    bytes = img.reshape(img.shape[0] * img.shape[1], order=order)
+    runs = []  ## list of run lengths
+    r = 0  ## the current run length
+    pos = 1  ## count starts from 1 per WK
+    for c in bytes:
+        if (c == 0):
+            if r != 0:
+                runs.append((pos, r))
+                pos += r
+                r = 0
+            pos += 1
+        else:
+            r += 1
+
+    # if last run is unsaved (i.e. data ends with 1)
+    if r != 0:
+        runs.append((pos, r))
+        pos += r
+        r = 0
+
+    if format:
+        z = ''
+
+        for rr in runs:
+            z += '{} {} '.format(rr[0], rr[1])
+        return z[:-1]
+    else:
+        return runs
 
 
 class AverageMeter(object):
@@ -284,3 +359,4 @@ def adjust_learning_rate(optimizer, epoch):
 
 if __name__ == '__main__':
     main()
+    predict('model_best.pth.tar')
