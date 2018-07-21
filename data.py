@@ -12,6 +12,7 @@ from torchvision import transforms
 from skimage.transform import resize
 
 
+
 parser = argparse.ArgumentParser(description='PyTorch dataloader')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
@@ -22,10 +23,9 @@ parser.add_argument('-b', '--batch-size', default=8, type=int,
 
 
 class TGSSaltDataset(data.Dataset):
-    def __init__(self, root_path, file_list, transform=None, test_mode=False):
+    def __init__(self, root_path, file_list, test_mode=False):
         self.root_path = root_path
         self.file_list = file_list
-        self.transform = transform
         self.test_mode = test_mode
 
     def _resize(self, image, num_channels):
@@ -48,11 +48,11 @@ class TGSSaltDataset(data.Dataset):
             mask_path = os.path.join(mask_folder, file_id + ".png")
             image = self._resize(np.array(imageio.imread(image_path), dtype=np.uint8), 3)
             mask = self._resize(np.array(imageio.imread(mask_path), dtype=np.uint8), 1)
-            processed_image, processed_mask = self.transform(image), self.transform(mask)
+            processed_image, processed_mask = torch.FloatTensor(image), torch.FloatTensor(mask)
             return processed_image, processed_mask
         else:
             image = self._resize(np.array(imageio.imread(image_path), dtype=np.uint8), 3)
-            processed_image = self.transform(image)
+            processed_image = torch.FloatTensor(image)
             return processed_image
 
 
@@ -65,17 +65,16 @@ if __name__ == '__main__':
     train_file_list = pd.read_csv(os.path.join(args.data, 'train.csv'))['id']
     test_file_list = pd.read_csv(os.path.join(args.data, 'sample_submission.csv'))['id']
     
-    train_dataset = TGSSaltDataset(traindir, train_file_list,
-        transforms.ToTensor())
+    train_dataset = TGSSaltDataset(traindir, train_file_list
+        )
     test_dataset = TGSSaltDataset(testdir, test_file_list, 
-        transforms.ToTensor(),
         test_mode=True)
 
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
     test_loader = data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.workers)
     
     for i, (image, mask) in enumerate(train_loader):
-        print(i, image.shape, mask.shape)
+        print(i, image.dtype, mask.dtype)
 
     # for i, image in enumerate(test_loader):
     #     print(i, image.shape)
