@@ -34,6 +34,9 @@ class TGSSaltDataset(data.Dataset):
     def __len__(self):
         return len(self.file_list)
 
+    def _to_tensor(self, np_array):
+        return torch.permute(torch.FloatTensor(np_array), (2, 0, 1))
+
     def __getitem__(self, index):
         if index not in range(0, len(self.file_list)):
             return self.__getitem__(np.random.randint(0, self.__len__()))
@@ -48,11 +51,11 @@ class TGSSaltDataset(data.Dataset):
             mask_path = os.path.join(mask_folder, file_id + ".png")
             image = self._resize(np.array(imageio.imread(image_path), dtype=np.uint8), 3)
             mask = self._resize(np.array(imageio.imread(mask_path), dtype=np.uint8), 1)
-            processed_image, processed_mask = torch.FloatTensor(image), torch.FloatTensor(mask)
+            processed_image, processed_mask = self._to_tensor(image), self._to_tensor(mask)
             return processed_image, processed_mask
         else:
             image = self._resize(np.array(imageio.imread(image_path), dtype=np.uint8), 3)
-            processed_image = torch.FloatTensor(image)
+            processed_image = self._to_tensor(image)
             return processed_image
 
 
