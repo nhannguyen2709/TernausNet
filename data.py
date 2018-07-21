@@ -35,7 +35,7 @@ class TGSSaltDataset(data.Dataset):
         return len(self.file_list)
 
     def _to_tensor(self, np_array):
-        return torch.permute(torch.FloatTensor(np_array), (2, 0, 1))
+        return torch.FloatTensor(np_array).permute(2, 0, 1)
 
     def __getitem__(self, index):
         if index not in range(0, len(self.file_list)):
