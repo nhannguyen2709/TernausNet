@@ -20,6 +20,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torchvision import models
 from unet_models import UNet16
+import augmentation as aug
 from dice_loss import BCEDiceLoss, dice_coeff
 from data import TGSSaltDataset
 from sklearn.model_selection import ShuffleSplit
@@ -128,11 +129,9 @@ def main():
         train_file_list = file_list[train_indices]
         val_file_list = file_list[val_indices]
 
-    train_dataset = TGSSaltDataset(traindir, train_file_list,
-        transforms.ToTensor())
-    val_dataset = TGSSaltDataset(traindir, val_file_list,
-        transforms.ToTensor())
-
+    train_dataset = TGSSaltDataset(traindir, train_file_list)
+    val_dataset = TGSSaltDataset(traindir, val_file_list)
+ 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     else:
@@ -166,7 +165,6 @@ def main():
         best_dc_metric = max(dc_metric, best_dc_metric)
         save_checkpoint({
             'epoch': epoch + 1,
-            'arch': args.arch,
             'state_dict': model.state_dict(),
             'best_dc_metric': best_dc_metric,
             'optimizer' : optimizer.state_dict(),
@@ -254,8 +252,7 @@ def predict(checkpoint, threshold=0.5):
 
     testdir = os.path.join(args.data, 'test')
     test_file_list = pd.read_csv(os.path.join(args.data, 'sample_submission.csv'))['id']
-    test_dataset = TGSSaltDataset(testdir, test_file_list, 
-        transforms.ToTensor(),
+    test_dataset = TGSSaltDataset(testdir, test_file_list,
         test_mode=True)
     test_loader = data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.workers)
 
